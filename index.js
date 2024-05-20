@@ -14,14 +14,14 @@ const rp = request.defaults({
   timeout: 20000,
   gzip: true, // 启用压缩
   strictSSL: true,
-  agentClass: Agent,
-  agentOptions: {
-    socksHost: 'localhost', // Defaults to 'localhost'.
-    socksPort: 1080 // Defaults to 1080.
-    // Optional credentials
-    // socksUsername: 'proxyuser',
-    // socksPassword: 'p@ssw0rd',
-  }
+//   agentClass: Agent,
+//   agentOptions: {
+//     // socksHost: 'localhost', // Defaults to 'localhost'.
+//     // socksPort: 1080 // Defaults to 1080.
+//     // Optional credentials
+//     // socksUsername: 'proxyuser',
+//     // socksPassword: 'p@ssw0rd',
+//   }
 })
 LRU.prototype.wrap = async function (key, func) {
   let val = this.get(key)
@@ -62,7 +62,7 @@ async function getTagName (user, repo, token) {
     log(`${user}/${repo}: 获取标签 - 缓存未命中`)
     const opt = { json: true, headers: { Authorization: 'token ' + token } }
     const [r1, r2] = await Promise.all([
-      rp.get(`https://api.github.com/repos/${user}/${repo}/branches/master`, opt),
+      rp.get(`https://api.github.com/repos/${user}/${repo}/branches/main`, opt),
       rp.get(`https://api.github.com/repos/${user}/${repo}/releases`, opt)
     ])
     const tagName = r1.commit.sha.slice(-10)
@@ -134,6 +134,18 @@ app.post('/webhook', (req, res) => {
  * 对http://host/user/repo/path/to/resource的请求，返回指向最新release的jsdelivr cdn地址的302跳转
  * 对形如http://host/user/repo/的根请求，返回最新release的标签，客户端可缓存此标签，并直接使用它组装资源URL，免去302跳转步骤
  */
+ app.all('*', function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", req.headers.origin);
+  // res.header("Access-Control-Allow-Origin", '*');
+  res.header("Access-Control-Allow-Headers", "Content-Type,Content-Length, Authorization, Accept,X-Requested-With");
+  res.header("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Credentials","true");
+  res.header("X-Powered-By",' 3.2.1')
+  if(req.method === "OPTIONS") res.send(200);/*让options请求快速返回*/
+  else  next();
+});
+
+
 app.get('/*', async (req, res) => {
   const [, user, repo, ...file] = req.path.split('/')
   if (!user || !repo) return resp(res, 'GET: 必须提供github仓库地址', 400)
@@ -143,7 +155,8 @@ app.get('/*', async (req, res) => {
   const tagName = await getTagName(user, repo, token)
   const path = file.join('/')
   if (!path) return res.send(tagName)
-  res.redirect(`https://cdn.jsdelivr.net/gh/${user}/${repo}@${tagName}/${path}`)
+//   res.redirect(`https://cdn.jsdelivr.net/gh/${user}/${repo}@${tagName}/${path}`)
+    return res.send({"url":`https://gcore.jsdelivr.net/gh/${user}/${repo}@${tagName}/${path}`})
 })
 
 app.listen(PORT, function () {
